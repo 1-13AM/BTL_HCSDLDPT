@@ -35,32 +35,6 @@ def compute_hsv_histogram(image_hsv: np.ndarray, mask: Optional[np.ndarray] = No
     hist_flat = hist.flatten()
     return hist_flat
 
-def extract_hsv_histogram(image_path: str, edge_detection_strategy: str = 'canny', h_bins: int = 16, s_bins: int = 3, v_bins: int = 3, normalize: bool = True, **edge_detection_kwargs) -> np.ndarray:
-    """
-    """
-    mask = None
-    rgb_img = load_image(image_path)
-    if edge_detection_strategy == 'canny':
-        mask = extract_object_mask_canny(rgb_img, **edge_detection_kwargs)
-    elif edge_detection_strategy == 'thresholding':
-        mask = extract_object_mask_thresholding(rgb_img, **edge_detection_kwargs)
-    # else:
-    #     raise ValueError("edge_detection_strategy must either be 'canny' or 'thresholding'")
-    
-    hsv_img = convert_rgb_to_hsv(rgb_img)
-    
-    hsv_hist = compute_hsv_histogram(hsv_img, 
-                                     mask, 
-                                     h_bins=h_bins, 
-                                     s_bins=s_bins, 
-                                     v_bins=v_bins, 
-                                     normalize=True)
-
-    if normalize:
-        hsv_hist /= hsv_hist.sum()
-        
-    return hsv_hist # array of shape [h_bins x s_bins x v_bins]
-
 def extract_hsv_histogram_features(image_path: str, h_bins: int = 16, s_bins: int = 3, v_bins: int = 3, normalize: bool = True, **edge_detection_kwargs) -> np.ndarray:
     """
     """
@@ -83,5 +57,5 @@ def extract_hsv_histogram_features(image_path: str, h_bins: int = 16, s_bins: in
                                      s_bins=s_bins, 
                                      v_bins=v_bins, 
                                      normalize=True)
-
+        
     return hsv_hist # array of shape [h_bins x s_bins x v_bins]

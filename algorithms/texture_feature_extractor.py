@@ -36,7 +36,7 @@ def compute_uniform_lbp(image, mode='grayscale', radius=1, neighbors=8):
         
         lbp_channels = []
         for channel in range(image.shape[2]):
-            lbp_channel = uniform_lbp(image[:,:,channel], radius, neighbors, uniform_patterns, n_bins)
+            lbp_channel = uniform_lbp(image[:,:,channel], radius, neighbors, uniform_patterns)
             lbp_channels.append(lbp_channel)
         
         # concatenate histograms from each channel
@@ -66,7 +66,7 @@ def uniform_lbp(image, radius, neighbors, uniform_patterns):
                     pattern |= (1 << n)
             
             # map to uniform pattern
-            result[y, x] = uniform_patterns.get(pattern, neighbors * (neighbors - 1) + 2)
+            result[y, x] = uniform_patterns.get(pattern, neighbors*(neighbors-1)+2)
     
     return result
 
@@ -141,8 +141,6 @@ def compute_lbp_on_object(image: np.ndarray, mask: np.ndarray, radius=1, neighbo
     
     # take out the background pixels
     object_pixels = lbp[mask > 0]
-    
-    # calculate histogram
     histogram, _ = np.histogram(object_pixels, bins=n_bins, range=(0, n_bins-1))
     
     return histogram

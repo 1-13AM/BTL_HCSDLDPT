@@ -1,4 +1,6 @@
 from typing import List, Callable, Tuple, Dict, Optional
+# from algorithms.color_feature_extractor import extract_hsv_histogram_features
+# from algorithms.texture_feature_extractor import extract_lbp_features
 from algorithms.color_feature_extractor import extract_hsv_histogram_features
 from algorithms.texture_feature_extractor import extract_lbp_features
 import numpy as np
@@ -119,19 +121,18 @@ class ImageVectorDatabase:
             if os.path.abspath(item.path) == os.path.abspath(query_image_path):
                 continue
             if include_features == 'color':
-                query_features = query_features[:feature_bins['color']]
+                query_features_for_comp = query_features[:feature_bins['color']]
                 item_features = item.features[:feature_bins['color']]
-                score = similarity_metric(query_features, item_features)
                 
             elif include_features == 'texture':
-                query_features = query_features[feature_bins['color']:feature_bins['color']+feature_bins['texture']]
-                item_features = item.features[feature_bins['color']:feature_bins['color']+feature_bins['texture']]  
-                score = similarity_metric(query_features, item_features)
+                query_features_for_comp = query_features[feature_bins['color']:feature_bins['color']+feature_bins['texture']]
+                item_features = item.features[feature_bins['color']:feature_bins['color']+feature_bins['texture']]
                 
             elif include_features == 'both':
-                query_features = query_features[:feature_bins['color']+feature_bins['texture']]
+                query_features_for_comp = query_features[:feature_bins['color']+feature_bins['texture']]
                 item_features = item.features[:feature_bins['color']+feature_bins['texture']]
-                score = similarity_metric(query_features, item_features)
+            
+            score = similarity_metric(query_features_for_comp, item_features)
             similarities.append((item.path, score))
         
         similarities.sort(key=lambda x: x[1], reverse=True)
@@ -229,3 +230,16 @@ class ImageVectorDatabase:
         
         plt.tight_layout()
         plt.show()
+
+if __name__=="__main__":
+    from utils.datatypes import ImageVectorDatabase
+    db_path = r"C:\Users\VICTUS\Desktop\BTL\Hệ_cơ_sở_dữ_liệu_đa_phương_tiện\vectordb.json"
+    db = ImageVectorDatabase.load_from_json(db_path)
+    # Visualize results
+    from utils.similarity_metrics import euclidean_distance, cosine_similarity, manhattan_distance
+    search_kwargs = {'k': 5,
+                    'similarity_metric': euclidean_distance,
+                    'include_features': 'texture',
+                    'feature_bins': {'color': 144, 'texture': 59}}
+    db.visualize_results(query_image_path=r'C:\Users\VICTUS\Desktop\BTL\Hệ_cơ_sở_dữ_liệu_đa_phương_tiện\animal_datasets_no_bg\gettyimages-2177524094-612x612.png', 
+                        **search_kwargs)

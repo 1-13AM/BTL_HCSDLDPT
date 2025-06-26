@@ -24,7 +24,7 @@ def manhattan_distance(vec1: np.ndarray, vec2: np.ndarray) -> float:
     Computes the manhattan_distance distance between two vectors.
     Lower value means more similar, so we're gonna return the negative of the distance
     """
-    return - np.abs(vec1 - vec2).sum()
+    return -np.abs(vec1 - vec2).sum()
 
 def weighted_combination(vec1: np.ndarray, vec2: np.ndarray, 
                          color_weight: float = 0.5, 

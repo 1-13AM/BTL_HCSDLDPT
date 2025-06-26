@@ -24,7 +24,6 @@ def extract_object_mask_thresholding(image: np.ndarray, threshold: int = 0) -> n
     # cv2.CHAIN_APRROX_SIMPLE helps saving memory
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # Create a blank mask
     mask = np.zeros_like(gray)
     
     if contours:
@@ -49,14 +48,13 @@ def extract_object_mask_canny(image: np.ndarray, low_threshold: int = 30, high_t
     
     # convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    
-    # apply Gaussian blur to reduce noise
+
+    # gaussian blur
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     
     # apply Canny edge detection
     edges = cv2.Canny(blurred, low_threshold, high_threshold)
     
-    # Dilate edges to ensure they connect
     kernel = np.ones((3, 3), np.uint8)
     dilated_edges = cv2.dilate(edges, kernel, iterations=1)
     

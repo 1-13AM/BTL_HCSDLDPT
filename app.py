@@ -6,17 +6,19 @@ import tempfile
 from typing import List, Tuple, Dict, Callable, Optional
 import json
 
-# Import necessary modules
 from utils.datatypes import ImageItem, ImageVectorDatabase
-from utils.similarity_metrics import (manhattan_distance, euclidean_distance, 
-                                    cosine_similarity)
-
-FEATURE_BINS = {'color': 144, 'texture': 59}
+from utils.similarity_metrics import (
+    manhattan_distance, euclidean_distance, cosine_similarity,
+    shape_similarity_metric
+)
 
 def load_database(db_path: str):
-    """Load the database from a JSON file"""
+    """Load the database from a pickle or JSON file"""
     try:
-        return ImageVectorDatabase.load_from_json(db_path)
+        if db_path.endswith('.pkl'):
+            return ImageVectorDatabase.load_from_pickle(db_path)
+        else:
+            return ImageVectorDatabase.load_from_json(db_path)
     except Exception as e:
         print(f"Error loading database: {e}")
         return None
@@ -24,55 +26,48 @@ def load_database(db_path: str):
 def search_similar_images(
     input_image,
     db: ImageVectorDatabase,
-    include_features: str,
-    similarity_metric: str,
+    feature_types: List[str],
+    color_texture_similarity_metric: str,
     k: int,
-    feature_bins: Dict[str, int]
+    feature_weights: Dict[str, float] = None
 ) -> List[Tuple[str, Image.Image, float]]:
     """
-    Search for similar images using the selected features and metric.
+    Search for similar images using the selected features and metrics.
     
     Args:
         input_image: The uploaded image (PIL Image)
         db: The image vector database
-        include_features: "color", "texture", or "both"
-        similarity_metric: "l1", "l2", or "cosine"
+        feature_types: List of feature types to include ("color", "texture", "shape")
+        color_texture_similarity_metric: "l1", "l2", or "cosine" for color/texture features
         k: Number of results to return
-        feature_bins: Dictionary mapping feature types to bin counts
+        feature_weights: Dictionary mapping feature types to weights
         
     Returns:
         List of (image_path, image, score) tuples
     """
-    # Save the input image to a temporary file
     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
         temp_path = temp_file.name
         input_image.save(temp_path)
     
-    # Select the appropriate similarity metric
-    if similarity_metric == "l1":
-        metric_func = manhattan_distance
-    elif similarity_metric == "l2":
-        metric_func = euclidean_distance
-    elif similarity_metric == "cosine":
-        metric_func = cosine_similarity
+    if color_texture_similarity_metric == "l1":
+        color_texture_metric = manhattan_distance
+    elif color_texture_similarity_metric == "l2":
+        color_texture_metric = euclidean_distance
+    elif color_texture_similarity_metric == "cosine":
+        color_texture_metric = cosine_similarity
     else:
-        metric_func = euclidean_distance  # Default
+        color_texture_metric = euclidean_distance  # Default
     
-    # Convert feature type to list
-    if include_features == "color":
-        features = "color"
-    elif include_features == "texture":
-        features = "texture"
-    else:
-        features = "both"
+    shape_metric = shape_similarity_metric
     
-    # Search for similar images
     results = db.search(
         query_image_path=temp_path,
-        similarity_metric=metric_func,
         k=k,
-        include_features=features,
-        feature_bins=feature_bins
+        feature_types=feature_types,
+        feature_weights=feature_weights,
+        color_similarity_metric=color_texture_metric,
+        texture_similarity_metric=color_texture_metric,
+        shape_similarity_metric=shape_metric
     )
     
     # Clean up the temp file
@@ -99,23 +94,26 @@ def create_similarity_search_interface(db: ImageVectorDatabase):
     # Define the interface
     with gr.Blocks(title="Image Similarity Search") as demo:
         gr.Markdown("# Image Similarity Search")
-        gr.Markdown("Upload an image to find similar images in the database.")
+        gr.Markdown("Upload an image to find similar images in the database using color, texture, and shape features.")
         
         with gr.Row():
             with gr.Column(scale=1):
                 # Input components
                 input_image = gr.Image(type="pil", label="Input Image")
                 
-                include_features = gr.Radio(
-                    choices=["color", "texture", "both"],
-                    value="both",
-                    label="Feature Type"
+                # Feature type selection (multiple selection)
+                feature_checkboxes = gr.CheckboxGroup(
+                    choices=["color_features", "texture_features", "shape_features"],
+                    value=["color_features", "texture_features"],
+                    label="Feature Types to Include"
                 )
                 
+                # Similarity metric for color/texture features only
                 similarity_metric = gr.Dropdown(
                     choices=["l1", "l2", "cosine"],
                     value="l2",
-                    label="Similarity Metric"
+                    label="Color/Texture Similarity Metric",
+                    info="Shape features use a specialized similarity metric"
                 )
                 
                 k = gr.Slider(
@@ -126,7 +124,7 @@ def create_similarity_search_interface(db: ImageVectorDatabase):
                     label="Number of Results"
                 )
                 
-                search_button = gr.Button("Search")
+                search_button = gr.Button("Search", variant="primary")
             
             with gr.Column(scale=2):
                 gallery = gr.Gallery(
@@ -142,45 +140,65 @@ def create_similarity_search_interface(db: ImageVectorDatabase):
         def search_wrapper(image, features, metric, k_val):
             if image is None:
                 return []
-            results = search_similar_images(
-                input_image=image, 
-                db=db, 
-                include_features=features, 
-                similarity_metric=metric, 
-                k=k_val, 
-                feature_bins=FEATURE_BINS
-            )
-            return format_results(results)
+            
+            if not features:
+                return []
+            
+            # Use equal weights for all selected features
+            feature_weights = {feature.replace('_features', ''): 1.0 for feature in features}
+            
+            try:
+                results = search_similar_images(
+                    input_image=image,
+                    db=db,
+                    feature_types=features,
+                    color_texture_similarity_metric=metric,
+                    k=k_val,
+                    feature_weights=feature_weights
+                )
+                
+                return format_results(results)
+                
+            except Exception as e:
+                return []
         
         search_button.click(
             fn=search_wrapper,
-            inputs=[input_image, include_features, similarity_metric, k],
-            outputs=gallery
+            inputs=[input_image, feature_checkboxes, similarity_metric, k],
+            outputs=[gallery]
         )
+        
+        # Add some example usage information
+        with gr.Row():
+            gr.Markdown("""
+            ### Usage Tips:
+            - **Color features**: Good for finding images with similar color distributions
+            - **Texture features**: Good for finding images with similar texture patterns (fur, skin, etc.)
+            - **Shape features**: Good for finding images with similar object shapes and boundaries
+            - **All selected features use equal weights**
+            - **Similarity metrics**: 
+              - L1 (Manhattan): Sum of absolute differences
+              - L2 (Euclidean): Standard distance measure
+              - Cosine: Angle-based similarity (good for normalized features)
+            - Shape features automatically use a specialized similarity metric optimized for shape descriptors
+            """)
     
     return demo
 
 # Launch the interface
 if __name__ == "__main__":
-    db_path = r"C:\Users\VICTUS\Desktop\BTL\Hệ_cơ_sở_dữ_liệu_đa_phương_tiện\vectordb.json"
-    db = load_database(db_path)
+    db_base_path = r"C:\Users\VICTUS\Desktop\BTL\Hệ_cơ_sở_dữ_liệu_đa_phương_tiện\new_vectordb.json"
+
+    if os.path.exists(db_base_path):
+        print(f"Loading database from {db_base_path}")
+        db = load_database(db_base_path)
+    else:
+        db = None
     
-    # from PIL import Image
-    # image = Image.open(r"C:\Users\VICTUS\Desktop\BTL\Hệ_cơ_sở_dữ_liệu_đa_phương_tiện\animal_datasets_no_bg\gettyimages-73319220-612x612.png")
-    # results = search_similar_images(input_image=image,
-    #                                db=db,
-    #                                include_features="both",
-    #                                similarity_metric="l2",
-    #                                k=5,
-    #                                feature_bins=FEATURE_BINS)
-    # print(results)
+    if db is None:
+        print("No database found! Please create a database first.")
+        exit(1)  # Exit the program if no database is available
     
-    # images = db.search(query_image_path=r"C:\Users\VICTUS\Desktop\BTL\Hệ_cơ_sở_dữ_liệu_đa_phương_tiện\animal_datasets_no_bg\gettyimages-73319220-612x612.png",
-    #                    similarity_metric=euclidean_distance,
-    #                    k=5,
-    #                    include_features="both",
-    #                    feature_bins=FEATURE_BINS)
-    # print(images)
-    
+    # Create and launch the interface
     demo = create_similarity_search_interface(db)
     demo.launch(share=True)

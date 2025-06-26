@@ -19,7 +19,7 @@ def load_image(image_path: str) -> np.ndarray:
     pil_image = Image.open(image_path)
     # Convert PIL image to numpy array
     image_np = np.array(pil_image)
-        
+    print(image_np.shape)
     return image_np
 
 def convert_rgb_to_hsv(image_rgb: np.ndarray) -> np.ndarray:

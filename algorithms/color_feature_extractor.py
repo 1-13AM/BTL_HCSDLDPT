@@ -40,8 +40,8 @@ def extract_hsv_histogram_features(image_path: str, h_bins: int = 16, s_bins: in
     """
     mask = None
     rgb_img = load_image(image_path)
+    edge_detection_strategy = edge_detection_kwargs.pop('edge_detection_strategy', 'canny')
     
-    edge_detection_strategy = edge_detection_kwargs.get('edge_detection_strategy', 'canny')
     if edge_detection_strategy == 'canny':
         mask = extract_object_mask_canny(rgb_img, **edge_detection_kwargs)
     elif edge_detection_strategy == 'thresholding':

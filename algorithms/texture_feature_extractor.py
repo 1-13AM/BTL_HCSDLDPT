@@ -26,11 +26,9 @@ def compute_uniform_lbp(image, mode='grayscale', radius=1, neighbors=8):
         else:
             gray = image
         
-        # compute LBP
         return uniform_lbp(gray, radius, neighbors, uniform_patterns)
     
     elif mode == 'color':
-        # process each channel separately
         if len(image.shape) != 3:
             raise ValueError("Expected color image for 'color' mode")
         
@@ -61,7 +59,6 @@ def uniform_lbp(image, radius, neighbors, uniform_patterns):
                 x_n = x + int(round(radius * np.cos(theta)))
                 y_n = y + int(round(radius * np.sin(theta)))
                 
-                # compare neighbor with center
                 if image[y_n, x_n] >= center:
                     pattern |= (1 << n)
             
@@ -87,7 +84,6 @@ def compute_regular_lbp(image, radius, neighbors):
                 x_n = x + int(round(radius * np.cos(theta)))
                 y_n = y + int(round(radius * np.sin(theta)))
                 
-                # compare neighbor with center
                 if image[y_n, x_n] >= center:
                     pattern |= (1 << n)
             
@@ -131,15 +127,12 @@ def compute_lbp_on_object(image: np.ndarray, mask: np.ndarray, radius=1, neighbo
 
     # apply LBP to the entire image
     if method == 'uniform':
-        # for uniform patterns, number of possible output values is neighbors*(neighbors-1)+3
         lbp = compute_uniform_lbp(gray, mode='grayscale', radius=radius, neighbors=neighbors)
         n_bins = neighbors*(neighbors-1)+3
     else:
-        # for regular LBP, number of possible output values is 2^neighbors
         lbp = compute_regular_lbp(gray, radius, neighbors)
         n_bins = 2**neighbors
     
-    # take out the background pixels
     object_pixels = lbp[mask > 0]
     histogram, _ = np.histogram(object_pixels, bins=n_bins, range=(0, n_bins-1))
     
@@ -151,19 +144,18 @@ def extract_lbp_features(image_path: str, radius: int = 1, neighbors: int = 8, m
     mask = None
     rgb_img = load_image(image_path)
     
-    edge_detection_strategy = edge_detection_kwargs.get('edge_detection_strategy', 'canny')
+    edge_detection_strategy = edge_detection_kwargs.pop('edge_detection_strategy', 'canny')
+    
     if edge_detection_strategy == 'canny':
         mask = extract_object_mask_canny(rgb_img, **edge_detection_kwargs)
     elif edge_detection_strategy == 'thresholding':
         mask = extract_object_mask_thresholding(rgb_img, **edge_detection_kwargs)
     
-    # extract the object mask
     mask = extract_object_mask_canny(rgb_img, **edge_detection_kwargs)
     
-    # compute LBP on the object region
     lbp_hist = compute_lbp_on_object(rgb_img, mask, radius=radius, neighbors=neighbors, method=method)
     
     if normalize:
         lbp_hist = lbp_hist.astype('float32') / lbp_hist.sum()
     
-    return lbp_hist # array of shape [neighbors * (neighbors - 1) + 3] if method=='uniform' else 2**neighbors
+    return lbp_hist

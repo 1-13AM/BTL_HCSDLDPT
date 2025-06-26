@@ -1,15 +1,15 @@
-from algorithms.shape.boundary_extraction import extract_boundary, plot_boundary_stages
-from algorithms.shape.CCH import find_start_point, generate_chain_code, compute_cch, plot_cch_and_image
-from algorithms.shape.scd import (
+from boundary_extraction import extract_boundary, plot_boundary_stages
+from CCH import find_start_point, generate_chain_code, compute_cch, plot_cch_and_image
+from scd import (
     smooth_contour, compute_curvature, find_zero_crossings,
     extract_tokens, plot_scd_stages
 )
 
-from algorithms.shape.bas import (
+from bas import (
     beam_angle_statistics_full, compress_BAS_with_FD, compress_BAS_by_sampling, plot_BAS_stages
 )
 
-from algorithms.shape.clf import compute_clf, plot_clf
+from clf import compute_clf, plot_clf
 
 
 import numpy as np
@@ -91,7 +91,7 @@ def compute_and_plot_clf(boundary, arc_length_steps=[5, 10, 20, 30]):
 
 
 
-def extract_shape_features(img_path):
+def extract_features_from_image(img_path):
     """Trích xuất toàn bộ 5 đặc trưng hình dạng từ 1 ảnh."""
 
     # 1. Preprocess & extract boundary
@@ -108,14 +108,19 @@ def extract_shape_features(img_path):
 
     # ====== CLF ======
     clf_feature = compute_and_plot_clf(boundary)
+    # ====== Shock Graph ======
     
+
     # Tổng hợp đặc trưng
     return {
+        "label": img_path,
         "cch": cch_feature,                      # Histogram 8 hướng
         "scd_tokens": tokens,                    # Danh sách đoạn cong với max curvature & orientation
         "bas_vector_fd": bas_feature["feature_fd"],         # Vector đặc trưng Fourier
         "bas_vector_sample": bas_feature["feature_sampled"],# Vector từ sampling
         "clf": clf_feature                       # Dict {l: [d_i]} — CLF theo nhiều scale
+        
+        # "shock_graph": ...                    # Có thể thêm sau
     }
 
 def numpy_to_list(obj):
@@ -132,3 +137,27 @@ def numpy_to_list(obj):
         return {k: numpy_to_list(v) for k, v in obj.items()}
     else:
         return obj
+
+
+def main(dataset_dir='../../animal_datasets_no_bg/', output_path='features.json'):
+    features = []
+    image_files = [f for f in os.listdir(dataset_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+    image_files.sort()  # đảm bảo thứ tự cố định
+
+    for fname in tqdm(image_files, desc="Extracting features"):
+        img_path = os.path.join(dataset_dir, fname)
+        try:
+            feat = extract_features_from_image(img_path)
+            features.append(feat)
+        except Exception as e:
+            print(f"❌ Error processing {fname}: {e}")
+
+    # Lưu kết quả ra file JSON
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(numpy_to_list(features), f, indent=2, ensure_ascii=False)
+
+
+    print(f"✅ Trích xuất và lưu xong {len(features)} ảnh vào {output_path}")
+
+if __name__ == "__main__":
+    main() 

@@ -45,7 +45,6 @@ def extract_object_mask_canny(image: np.ndarray, low_threshold: int = 30, high_t
     Returns:
         np.ndarray: Binary mask where object pixels are 255 and background is 0
     """
-    
     # convert to grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
